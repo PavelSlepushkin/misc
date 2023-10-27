@@ -1,0 +1,39 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "shell-job.fullname" . }}
+  labels:
+    {{- include "shell-job.labels" . | nindent 4 }}
+spec:
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+         - name : master
+           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+           command: ["/mnt/script.zsh"]
+           securityContext:
+             allowPrivilegeEscalation: false
+             privileged: false
+             readOnlyRootFilesystem: true
+             runAsGroup: 1000
+             runAsNonRoot: true
+             runAsUser: 1000
+           volumeMounts:
+           - name: script
+             mountPath: /mnt/script.zsh
+             subPath: script.zsh
+           - name: tmpfs
+             mountPath: /tmp
+      restartPolicy: OnFailure
+      serviceAccountName: {{ include "shell-job.serviceAccountName" . }}
+      volumes:
+       - name: script
+         configMap:
+           name: {{ include "shell-job.fullname" . }}
+           defaultMode: 0777
+       - name: tmpfs
+         emptyDir: {}
